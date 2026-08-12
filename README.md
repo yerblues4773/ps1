@@ -23,7 +23,7 @@ PowerShell を **管理者として実行** し、以下のコマンドを順番
 Set-ExecutionPolicy RemoteSigned -Scope Process
 
 # 2. リポジトリのクローン（またはファイルの配置場所へ移動）
-git clone [https://github.com/yerblues4773/ps1.git](https://github.com/yerblues4773/ps1.git)
+git clone git clone https://github.com/yerblues4773/ps1.git
 cd ps1
 
 # 3. スクリプトの実行
