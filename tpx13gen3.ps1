@@ -62,9 +62,11 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # -----------------------------------------------------------------
-# 5. OneDrive の完全停止＆アンインストール
+# 5. 不要な標準アプリ（OneDrive・天気・各種標準ブロートウェア）の一括アンインストール
 # -----------------------------------------------------------------
-Write-Host "[5/9] OneDrive の完全削除を実行中..." -ForegroundColor Yellow
+Write-Host "[5/9] 不要な標準アプリの一括削除・アンインストールを実行中..." -ForegroundColor Yellow
+
+# 1) OneDrive の削除
 Get-Process -Name "OneDrive" -ErrorAction SilentlyContinue | Stop-Process -Force
 $onedriveApp = Get-AppxPackage -Name "*OneDrive*" -ErrorAction SilentlyContinue
 if ($onedriveApp) { Remove-AppxPackage -Package $onedriveApp.PackageFullName -ErrorAction SilentlyContinue }
@@ -73,10 +75,31 @@ $onedriveSetup = "$env:SystemRoot\SysWOW64\OneDriveSetup.exe"
 if (Test-Path $onedriveSetup) {
     Start-Process $onedriveSetup -ArgumentList "/uninstall" -Wait
 }
-Write-Host " -> OneDrive を完全にアンインストール・無効化しました。" -ForegroundColor Green
+Write-Host " -> OneDrive の完全削除完了" -ForegroundColor Green
+
+# 2) 定番の不要標準アプリ（天気、ニュース、Xbox等）の削除リスト
+$bloatwareApps = @(
+    "*BingWeather*",       # 天気 (MSN Weather)
+    "*BingNews*",          # ニュース
+    "*GamingApp*",         # Xbox App
+    "*XboxGamingOverlay*", # Xbox Game Bar
+    "*WindowsFeedbackHub*",# フィードバック Hub
+    "*GetHelp*",           # 問い合わせ
+    "*WindowsMaps*",       # マップ
+    "*MicrosoftSolitaireCollection*", # ソリティア
+    "*YourPhone*"          # スマートフォン連携
+)
+
+foreach ($app in $bloatwareApps) {
+    $target = Get-AppxPackage -Name $app -ErrorAction SilentlyContinue
+    if ($target) {
+        Remove-AppxPackage -Package $target.PackageFullName -ErrorAction SilentlyContinue
+        Write-Host " -> 標準アプリを削除しました: $($target.Name)" -ForegroundColor Green
+    }
+}
 
 # -----------------------------------------------------------------
-# 6. winget による主要アプリの一括インストール（Logi Options+ 追加）
+# 6. winget による主要アプリの一括インストール（Logi Options+ 追加済み）
 # -----------------------------------------------------------------
 Write-Host "[6/9] アプリの一括インストールを開始します..." -ForegroundColor Yellow
 
@@ -85,7 +108,7 @@ $apps = @(
     @{ Name = "Google 日本語入力"; Id = "Google.JapaneseIME"; Source = "winget" },
     @{ Name = "1Password"; Id = "AgileBits.1Password"; Source = "winget" },
     @{ Name = "Adobe Acrobat Reader"; Id = "Adobe.Acrobat.Reader.64-bit"; Source = "winget" },
-    @{ Name = "Logi Options+"; Id = "Logitech.LogiOptionsPlus"; Source = "winget" }, # 追加
+    @{ Name = "Logi Options+"; Id = "Logitech.LogiOptionsPlus"; Source = "winget" },
     @{ Name = "iCloud (Microsoft Store最新版)"; Id = "9PKDQDX07HP9"; Source = "msstore" },
     @{ Name = "pCloud Drive"; Id = "pCloudAG.pCloudDrive"; Source = "winget" },
     @{ Name = "Obsidian"; Id = "Obsidian.Obsidian"; Source = "winget" },
