@@ -1,0 +1,11 @@
+﻿{
+  "recommendations": [
+    "ms-vscode.powershell",
+    "thqby.vscode-autohotkey2-lsp",
+    "ms-python.python",
+    "eamodio.gitlens",
+    "yzhang.markdown-all-in-one",
+    "esbenp.prettier-vscode",
+    "pkief.material-icon-theme"
+  ]
+}
