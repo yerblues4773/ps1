@@ -1,20 +1,34 @@
 set-executionpolicy remotesigned -Scope process
+
 # =================================================================
-#  tpx13gen3.ps1
-#  ThinkPad X13 Gen 3 専用 完全自動セットアップ＆最適化スクリプト
+#   tpx13gen3.ps1
+#   ThinkPad X13 Gen 3 専用 完全自動セットアップ＆最適化スクリプト
 # =================================================================
 
+# -----------------------------------------------------------------
+# 0. 管理者権限チェック
+# -----------------------------------------------------------------
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "[ERROR] このスクリプトを実行するには管理者権限が必要です。" -ForegroundColor Red
+    Write-Host "PowerShell を「管理者として実行」して再度お試しください。" -ForegroundColor Yellow
+    exit
+}
+
+# パフォーマンス向上のため進捗表示を一時抑制
+$ProgressPreference = 'SilentlyContinue'
+
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "  ThinkPad X13 Gen 3 コックピット完全覚醒プロセス  " -ForegroundColor Cyan
+Write-Host "   ThinkPad X13 Gen 3 コックピット完全覚醒プロセス   " -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
 # -----------------------------------------------------------------
 # 1. コンピュータ名（デバイス名）を 'TPX13GEN3' に確定
 # -----------------------------------------------------------------
 Write-Host "[1/9] デバイス名を 'TPX13GEN3' に変更中..." -ForegroundColor Yellow
-$currentName = (Get-WmiObject Win32_ComputerSystem).Name
+$currentName = (Get-CimInstance Win32_ComputerSystem).Name
 if ($currentName -ne "TPX13GEN3") {
-    Rename-Computer -NewName "TPX13GEN3" -Force
+    Rename-Computer -NewName "TPX13GEN3" -Force -ErrorAction SilentlyContinue
     Write-Host " -> デバイス名を 'TPX13GEN3' に変更しました。(再起動後に反映)" -ForegroundColor Green
 } else {
     Write-Host " -> すでにデバイス名は 'TPX13GEN3' です。" -ForegroundColor Green
@@ -26,7 +40,7 @@ if ($currentName -ne "TPX13GEN3") {
 Write-Host "[2/9] Ctrl ⇔ CapsLock キーの入れ替えを適用中..." -ForegroundColor Yellow
 $registryPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout"
 $name = "Scancode Map"
-$value = [byte[]](0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x03,0x00,0x00,0x00, 0x1d,0x00,0x3a,0x00, 0x3a,0x00,0x1d,0x00, 0x00,0x00,0x00,0x00)
+[byte[]]$value = 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x03,0x00,0x00,0x00, 0x1d,0x00,0x3a,0x00, 0x3a,0x00,0x1d,0x00, 0x00,0x00,0x00,0x00
 
 if (-not (Test-Path $registryPath)) { New-Item -Path $registryPath -Force | Out-Null }
 New-ItemProperty -Path $registryPath -Name $name -Value $value -PropertyType Binary -Force | Out-Null
@@ -36,7 +50,6 @@ Write-Host " -> キー入れ替えを適用しました。(再起動後に反映
 # 3. winget の自動最新化
 # -----------------------------------------------------------------
 Write-Host "[3/9] winget をバックグラウンドで自動最新化中..." -ForegroundColor Yellow
-$ProgressPreference = 'SilentlyContinue'
 $wingetUrl = "https://aka.ms/getwinget"
 $tempPath = "$env:TEMP\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
 
@@ -46,8 +59,6 @@ try {
     Write-Host " -> winget の自動アップデートに成功しました。" -ForegroundColor Green
 } catch {
     Write-Warning " -> winget 最新化スキップ（すでに最新かネットワーク未接続）"
-} finally {
-    $ProgressPreference = 'Continue'
 }
 
 # -----------------------------------------------------------------
@@ -67,17 +78,17 @@ if ($LASTEXITCODE -eq 0) {
 Write-Host "[5/9] 不要な標準アプリの一括削除・アンインストールを実行中..." -ForegroundColor Yellow
 
 # 1) OneDrive の削除
-Get-Process -Name "OneDrive" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "OneDrive" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 $onedriveApp = Get-AppxPackage -Name "*OneDrive*" -ErrorAction SilentlyContinue
 if ($onedriveApp) { Remove-AppxPackage -Package $onedriveApp.PackageFullName -ErrorAction SilentlyContinue }
 
 $onedriveSetup = "$env:SystemRoot\SysWOW64\OneDriveSetup.exe"
 if (Test-Path $onedriveSetup) {
-    Start-Process $onedriveSetup -ArgumentList "/uninstall" -Wait
+    Start-Process $onedriveSetup -ArgumentList "/uninstall" -Wait -WindowStyle Hidden
 }
-Write-Host " -> OneDrive の完全削除完了" -ForegroundColor Green
+Write-Host " -> OneDrive の完全削除処理完了" -ForegroundColor Green
 
-# 2) 定番の不要標準アプリ（天気、ニュース、Xbox等）の削除リスト
+# 2) 定番の不要標準アプリ削除リスト
 $bloatwareApps = @(
     "*BingWeather*",       # 天気 (MSN Weather)
     "*BingNews*",          # ニュース
@@ -99,7 +110,7 @@ foreach ($app in $bloatwareApps) {
 }
 
 # -----------------------------------------------------------------
-# 6. winget による主要アプリの一括インストール（Logi Options+ 追加済み）
+# 6. winget による主要アプリの一括インストール
 # -----------------------------------------------------------------
 Write-Host "[6/9] アプリの一括インストールを開始します..." -ForegroundColor Yellow
 
@@ -187,7 +198,7 @@ $startupFolders = @(
 )
 foreach ($folder in $startupFolders) {
     if (Test-Path $folder) {
-        Get-ChildItem -Path $folder -Recurse | ForEach-Object {
+        Get-ChildItem -Path $folder -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
             foreach ($target in $targetApps) {
                 if ($_.Name -like "*$target*") {
                     Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
@@ -198,20 +209,25 @@ foreach ($folder in $startupFolders) {
     }
 }
 
-# Mac風スクロール＆電源設定
-$hids = Get-ChildItem "HKLM:\SYSTEM\CurrentControlSet\Enum\HID" -Recurse
+# Mac風スクロール（FlipFlopWheel）＆電源設定
+$hids = Get-ChildItem "HKLM:\SYSTEM\CurrentControlSet\Enum\HID" -Recurse -ErrorAction SilentlyContinue
 foreach ($hid in $hids) {
     if ($hid.Name -like "*Device Parameters*") {
         $path = $hid.Name -replace "HKEY_LOCAL_MACHINE", "HKLM:"
         if (Get-ItemProperty -Path $path -Name "FlipFlopWheel" -ErrorAction SilentlyContinue) {
-            Set-ItemProperty -Path $path -Name "FlipFlopWheel" -Value 1 -Force
+            Set-ItemProperty -Path $path -Name "FlipFlopWheel" -Value 1 -Force | Out-Null
         }
     }
 }
+
+# 電源ポリシー設定（スリープ・ディスプレイ消灯時間）
 powercfg /change monitor-timeout-ac 15
 powercfg /change monitor-timeout-dc 5
 powercfg /change standby-timeout-ac 30
 powercfg /change standby-timeout-dc 15
+
+# 進捗表示設定の復元
+$ProgressPreference = 'Continue'
 
 Write-Host "==================================================" -ForegroundColor Green
 Write-Host "   すべてのクリーンアップ・セットアップが完了！   " -ForegroundColor Green
