@@ -12,7 +12,9 @@ ThinkPad X13 Gen 3 の初期化後や環境構築時に、システム設定の�
 - **不要サービスの除去**: OneDrive の完全停止＆アンインストール
 - **アプリの一括導入**: Google Chrome, Google 日本語入力, 1Password, Adobe Acrobat Reader, Logi Options+, iCloud, pCloud Drive, Obsidian, iTunes, mpv.net, AutoHotkey v2, ThreeFingerDragOnWindows, .NET 10 Desktop Runtime 10.0.11, VS Code
 - **ブラウザ・通知最適化**: Edgeのバックグラウンド動作抑制、Chromeの優先化、Focus Assistによる通知抑制
-- **スタートアップ・操作最適化**: 不要なスタートアップの削除、マウスホイールのナチュラルスクロール化（Mac風）、電源設定の自動調整
+- **スタートアップ整理**: OneDrive、Xbox、Teams、Copilot、Edgeなどのスタートアップ項目を削除
+- **マウス・タッチパッド設定**: ポインター速度、ポインター精度向上、ホイール設定、非アクティブウィンドウのスクロール、タッチパッドの有効化、カーソル速度、2本指スクロール、タップ操作を設定
+- **電源設定**: AC接続時とバッテリー駆動時のディスプレイ消灯・スリープ時間を設定
 
 ## 使い方
 
@@ -34,3 +36,5 @@ cd ps1
 ```
 
 iCloud Drive はシンボリックリンクを作成せず、既定の `C:\Users\r.takahara\iCloudDrive` を使用します。三本指ドラッグはレジストリ変更を行わず、ThreeFingerDragOnWindows で設定します。
+
+CapsLock と Ctrl の入れ替えは維持します。AutoHotkey は削除せず、AutoHotkey v2 をインストールします。マウス・タッチパッド設定はユーザー単位で適用され、設定反映にはサインアウトまたは再起動が必要な場合があります。
