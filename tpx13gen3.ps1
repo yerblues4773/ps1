@@ -1,4 +1,13 @@
-set-executionpolicy remotesigned -Scope process
+param(
+    [switch]$DryRun
+)
+
+Set-ExecutionPolicy RemoteSigned -Scope Process
+
+if ($DryRun) {
+    Write-Host "[DRY-RUN] 構文と起動確認のみ実行しました。設定変更は行っていません。" -ForegroundColor Yellow
+    exit 0
+}
 
 # =================================================================
 #   tpx13gen3.ps1
@@ -30,7 +39,8 @@ $currentName = (Get-CimInstance Win32_ComputerSystem).Name
 if ($currentName -ne "TPX13GEN3") {
     Rename-Computer -NewName "TPX13GEN3" -Force -ErrorAction SilentlyContinue
     Write-Host " -> デバイス名を 'TPX13GEN3' に変更しました。(再起動後に反映)" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host " -> すでにデバイス名は 'TPX13GEN3' です。" -ForegroundColor Green
 }
 
@@ -40,7 +50,7 @@ if ($currentName -ne "TPX13GEN3") {
 Write-Host "[2/9] Ctrl ⇔ CapsLock キーの入れ替えを適用中..." -ForegroundColor Yellow
 $registryPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout"
 $name = "Scancode Map"
-[byte[]]$value = 0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, 0x03,0x00,0x00,0x00, 0x1d,0x00,0x3a,0x00, 0x3a,0x00,0x1d,0x00, 0x00,0x00,0x00,0x00
+[byte[]]$value = 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x1d, 0x00, 0x3a, 0x00, 0x3a, 0x00, 0x1d, 0x00, 0x00, 0x00, 0x00, 0x00
 
 if (-not (Test-Path $registryPath)) { New-Item -Path $registryPath -Force | Out-Null }
 New-ItemProperty -Path $registryPath -Name $name -Value $value -PropertyType Binary -Force | Out-Null
@@ -57,7 +67,8 @@ try {
     Invoke-WebRequest -Uri $wingetUrl -OutFile $tempPath -UseBasicParsing -ErrorAction Stop
     Add-AppxPackage -Path $tempPath -ErrorAction Stop
     Write-Host " -> winget の自動アップデートに成功しました。" -ForegroundColor Green
-} catch {
+}
+catch {
     Write-Warning " -> winget 最新化スキップ（すでに最新かネットワーク未接続）"
 }
 
@@ -68,7 +79,8 @@ Write-Host "[4/9] PowerShell 7 をインストール中..." -ForegroundColor Yel
 winget install --id Microsoft.PowerShell --source winget --silent --accept-package-agreements --accept-source-agreements --force | Out-Null
 if ($LASTEXITCODE -eq 0) {
     Write-Host " -> PowerShell 7 のインストールが完了しました。" -ForegroundColor Green
-} else {
+}
+else {
     Write-Warning " -> PowerShell 7 はすでに最新版が導入済みか、処理をスキップしました。"
 }
 
@@ -126,15 +138,23 @@ $apps = @(
     @{ Name = "iTunes"; Id = "Apple.iTunes"; Source = "winget" },
     @{ Name = "mpv.net"; Id = "stefanbreunig.mpvnet"; Source = "winget" },
     @{ Name = "AutoHotkey"; Id = "AutoHotkey.AutoHotkey"; Source = "winget" },
+    @{ Name = "ThreeFingerDragOnWindows"; Id = "ClémentGrennerat.ThreeFingerDrag"; Source = "winget" },
+    @{ Name = ".NET 10 Desktop Runtime"; Id = "Microsoft.DotNet.DesktopRuntime.10.0"; Source = "winget"; Version = "10.0.11" },
     @{ Name = "VS Code"; Id = "Microsoft.VisualStudioCode"; Source = "winget" }
 )
 
 foreach ($app in $apps) {
     Write-Host " -> インストール/最新化チェック中: $($app.Name)" -ForegroundColor Cyan
-    winget install --id $app.Id --source $app.Source --silent --accept-package-agreements --accept-source-agreements --force | Out-Null
+    $wingetArguments = @(
+        "install", "--id", $app.Id, "--source", $app.Source,
+        "--silent", "--accept-package-agreements", "--accept-source-agreements", "--force"
+    )
+    if ($app.Version) { $wingetArguments += @("--version", $app.Version) }
+    & winget @wingetArguments | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "   => $($app.Name) の処理が完了しました。" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Warning "   => $($app.Name) はすでに最新版が導入済みか、処理をスキップしました。"
     }
 }
@@ -209,16 +229,27 @@ foreach ($folder in $startupFolders) {
     }
 }
 
-# Mac風スクロール（FlipFlopWheel）＆電源設定
-$hids = Get-ChildItem "HKLM:\SYSTEM\CurrentControlSet\Enum\HID" -Recurse -ErrorAction SilentlyContinue
-foreach ($hid in $hids) {
-    if ($hid.Name -like "*Device Parameters*") {
-        $path = $hid.Name -replace "HKEY_LOCAL_MACHINE", "HKLM:"
-        if (Get-ItemProperty -Path $path -Name "FlipFlopWheel" -ErrorAction SilentlyContinue) {
-            Set-ItemProperty -Path $path -Name "FlipFlopWheel" -Value 1 -Force | Out-Null
-        }
-    }
-}
+# マウス・タッチパッド設定
+$mousePath = "HKCU:\Control Panel\Mouse"
+$desktopPath = "HKCU:\Control Panel\Desktop"
+$touchpadPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\PrecisionTouchPad"
+
+if (-not (Test-Path $mousePath)) { New-Item -Path $mousePath -Force | Out-Null }
+if (-not (Test-Path $desktopPath)) { New-Item -Path $desktopPath -Force | Out-Null }
+if (-not (Test-Path $touchpadPath)) { New-Item -Path $touchpadPath -Force | Out-Null }
+
+Set-ItemProperty -Path $mousePath -Name "MouseSensitivity" -Value "20" -Force
+Set-ItemProperty -Path $mousePath -Name "MouseSpeed" -Value "1" -Force
+Set-ItemProperty -Path $mousePath -Name "MouseThreshold1" -Value "6" -Force
+Set-ItemProperty -Path $mousePath -Name "MouseThreshold2" -Value "10" -Force
+Set-ItemProperty -Path $mousePath -Name "WheelScrollLines" -Value "3" -Force
+Set-ItemProperty -Path $desktopPath -Name "MouseWheelRouting" -Value 2 -Force
+
+Set-ItemProperty -Path $touchpadPath -Name "Enabled" -Value 1 -Force
+Set-ItemProperty -Path $touchpadPath -Name "CursorSpeed" -Value 10 -Force
+Set-ItemProperty -Path $touchpadPath -Name "ScrollDirection" -Value 0 -Force
+Set-ItemProperty -Path $touchpadPath -Name "Taps" -Value 1 -Force
+Set-ItemProperty -Path $touchpadPath -Name "TwoFingerTap" -Value 1 -Force
 
 # 電源ポリシー設定（スリープ・ディスプレイ消灯時間）
 powercfg /change monitor-timeout-ac 15
